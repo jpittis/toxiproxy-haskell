@@ -1,0 +1,40 @@
+name: toxiproxy-haskell
+version: 0.1.0.0
+github: "jpittis/toxiproxy-haskell"
+license: BSD3
+author: "Jake Pittis"
+maintainer: "jakepittis@gmail.com"
+copyright: "2018 Jake Pittis"
+
+extra-source-files:
+- README.md
+
+description: Please see the README on Github at <https://github.com/jpittis/toxiproxy-haskell#readme>
+
+dependencies:
+- base >= 4.7 && < 5
+
+library:
+  source-dirs: src
+  dependencies:
+  - servant
+  - text
+  - servant-client
+  - aeson
+  - containers
+
+tests:
+  toxiproxy-haskell-test:
+    main: Spec.hs
+    source-dirs: test
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - toxiproxy-haskell
+    - hspec
+    - servant-client
+    - servant
+    - http-client
+    - containers
