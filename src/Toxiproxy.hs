@@ -24,11 +24,24 @@ import Data.Aeson (FromJSON, parseJSON, fieldLabelModifier, defaultOptions, gene
 import Data.Map.Strict (Map)
 
 type ToxiproxyAPI =
-       "version" :> Get '[PlainText] Version
-  :<|> "reset"   :> Post '[] NoContent
-  :<|> "proxies" :> Get '[JSON] (Map Text Proxy)
-  :<|> "proxies" :> ReqBody '[JSON] Proxy :> Post '[JSON] Proxy
-  :<|> "proxies" :> Capture "name" Text :> Get '[JSON] Proxy
+       "version"  :> Get '[PlainText] Version
+  :<|> "reset"    :> Post '[] NoContent
+  :<|> "proxies"  :> Get '[JSON] (Map Text Proxy)
+  :<|> "proxies"  :> ReqBody '[JSON] Proxy :> Post '[JSON] Proxy
+  :<|> "proxies"  :> Capture "name" Text :> Get '[JSON] Proxy
+  :<|> "populate" :> ReqBody '[JSON] [Proxy] :> Post '[JSON] [Proxy]
+  :<|> "proxies"  :> Capture "name" Text :> ReqBody '[JSON] Proxy :> Post '[JSON] Proxy
+  :<|> "proxies"  :> Capture "name" Text :> Delete '[] NoContent
+  :<|> "proxies"  :> Capture "name" Text :>
+       "toxics"   :> Get '[JSON] [Toxic]
+  :<|> "proxies"  :> Capture "name" Text :>
+       "toxics"   :> ReqBody '[JSON] Toxic :> Post '[JSON] Toxic
+  :<|> "proxies"  :> Capture "name" Text :>
+       "toxics"   :> Capture "name" Text :> Get '[JSON] Toxic
+  :<|> "proxies"  :> Capture "name" Text :>
+       "toxics"   :> Capture "name" Text :> ReqBody '[JSON] Toxic :> Get '[JSON] Toxic
+  :<|> "proxies"  :> Capture "name" Text :>
+       "toxics"   :> Capture "name" Text :> Delete '[JSON] NoContent
 
 type Version = Text
 
@@ -76,10 +89,29 @@ stripPrefixJSON prefix str =
 toxiproxyAPI :: Proxy.Proxy ToxiproxyAPI
 toxiproxyAPI = Proxy.Proxy
 
-getVersion  :: ClientM Version
-postReset   :: ClientM NoContent
-getProxies  :: ClientM (Map Text Proxy)
-createProxy :: Proxy -> ClientM Proxy
-getProxy    :: Text -> ClientM Proxy
+getVersion      :: ClientM Version
+postReset       :: ClientM NoContent
+getProxies      :: ClientM (Map Text Proxy)
+createProxy     :: Proxy -> ClientM Proxy
+getProxy        :: Text -> ClientM Proxy
+populateProxies :: [Proxy] -> ClientM [Proxy]
+updateProxy     :: Text -> Proxy -> ClientM Proxy
+deleteProxy     :: Text -> ClientM NoContent
+getToxics       :: Text -> ClientM [Toxic]
+createToxic     :: Text -> Toxic -> ClientM Toxic
+getToxic        :: Text -> Text -> ClientM Toxic
+updateToxic     :: Text -> Text -> Toxic -> ClientM Toxic
+deleteToxic     :: Text -> Text -> ClientM NoContent
 
-(getVersion :<|> postReset :<|> getProxies :<|> createProxy :<|> getProxy) = client toxiproxyAPI
+(getVersion :<|> postReset
+            :<|> getProxies
+            :<|> createProxy
+            :<|> getProxy
+            :<|> populateProxies
+            :<|> updateProxy
+            :<|> deleteProxy
+            :<|> getToxics
+            :<|> createToxic
+            :<|> getToxic
+            :<|> updateToxic
+            :<|> deleteToxic) = client toxiproxyAPI

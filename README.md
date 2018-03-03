@@ -4,22 +4,25 @@ A work in progress client for [Toxiproxy](https://github.com/Shopify/toxiproxy).
 
 ## Implemented
 
-- getVersion  :: ClientM Version
-- postReset   :: ClientM NoContent
-- getProxies  :: ClientM (Map Text Proxy)
-- createProxy :: Proxy -> ClientM Proxy
-- getProxy    :: Text -> ClientM Proxy
+- getVersion      :: ClientM Version
+- postReset       :: ClientM NoContent
+- getProxies      :: ClientM (Map Text Proxy)
+- createProxy     :: Proxy -> ClientM Proxy
+- getProxy        :: Text -> ClientM Proxy
+- populateProxies :: [Proxy] -> ClientM [Proxy]
+- updateProxy     :: Text -> Proxy -> ClientM Proxy
+- deleteProxy     :: Text -> ClientM NoContent
+- getToxics       :: Text -> ClientM [Toxic]
+- createToxic     :: Text -> Toxic -> ClientM Toxic
+- getToxic        :: Text -> Text -> ClientM Toxic
+- updateToxic     :: Text -> Text -> Toxic -> ClientM Toxic
+- deleteToxic     :: Text -> Text -> ClientM NoContent
 
-## Todo
+## Todo Before V1
 
-- POST /populate - Create or replace a list of proxies
-- POST /proxies/{proxy} - Update a proxy's fields
-- DELETE /proxies/{proxy} - Delete an existing proxy
-- GET /proxies/{proxy}/toxics - List active toxics
-- POST /proxies/{proxy}/toxics - Create a new toxic
-- GET /proxies/{proxy}/toxics/{toxic} - Get an active toxic's fields
-- POST /proxies/{proxy}/toxics/{toxic} - Update an active toxic
-- DELETE /proxies/{proxy}/toxics/{toxic} - Remove an active toxic
+- Write tests for all of the endpoints.
+- Submit server modification upstream. (See below.)
+- Write a higher level client using the `with` pattern.
 
 ## Server Modifications
 
