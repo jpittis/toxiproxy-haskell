@@ -39,3 +39,4 @@ tests:
     - http-client
     - containers
     - process
+    - silently

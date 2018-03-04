@@ -7,8 +7,18 @@ module Toxiproxy
     , getProxies
     , createProxy
     , getProxy
+    , populate
+    , updateProxy
+    , deleteProxy
+    , getToxics
+    , createToxic
+    , getToxic
+    , updateToxic
+    , deleteToxic
     , Proxy(..)
     , Toxic(..)
+    , Populate(..)
+    , toxiproxyUrl
     ) where
 
 import Servant.API
@@ -29,7 +39,7 @@ type ToxiproxyAPI =
   :<|> "proxies"  :> Get '[JSON] (Map Text Proxy)
   :<|> "proxies"  :> ReqBody '[JSON] Proxy :> Post '[JSON] Proxy
   :<|> "proxies"  :> Capture "name" Text :> Get '[JSON] Proxy
-  :<|> "populate" :> ReqBody '[JSON] [Proxy] :> Post '[JSON] [Proxy]
+  :<|> "populate" :> ReqBody '[JSON] [Proxy] :> Post '[JSON] Populate
   :<|> "proxies"  :> Capture "name" Text :> ReqBody '[JSON] Proxy :> Post '[JSON] Proxy
   :<|> "proxies"  :> Capture "name" Text :> Delete '[] NoContent
   :<|> "proxies"  :> Capture "name" Text :>
@@ -64,10 +74,11 @@ instance ToJSON Proxy where
       { fieldLabelModifier = stripPrefixJSON "proxy" }
 
 data Toxic = Toxic
-  { toxicName     :: Text
-  , toxicType     :: Text
-  , toxicStream   :: Text
-  , toxicToxicity :: Float
+  { toxicName       :: Text
+  , toxicType       :: Text
+  , toxicStream     :: Text
+  , toxicToxicity   :: Float
+  , toxicAttributes :: Map Text Int
   } deriving (Show, Eq, Generic)
 
 instance FromJSON Toxic where
@@ -79,6 +90,15 @@ instance ToJSON Toxic where
   toJSON = genericToJSON $
     defaultOptions
       { fieldLabelModifier = stripPrefixJSON "toxic" }
+
+newtype Populate = Populate { populateProxies :: [Proxy] }
+  deriving (Show, Eq, Generic)
+
+instance FromJSON Populate where
+  parseJSON = genericParseJSON $
+    defaultOptions
+      { fieldLabelModifier = stripPrefixJSON "populate" }
+
 
 stripPrefixJSON :: String -> String -> String
 stripPrefixJSON prefix str =
@@ -94,7 +114,7 @@ postReset       :: ClientM NoContent
 getProxies      :: ClientM (Map Text Proxy)
 createProxy     :: Proxy -> ClientM Proxy
 getProxy        :: Text -> ClientM Proxy
-populateProxies :: [Proxy] -> ClientM [Proxy]
+populate        :: [Proxy] -> ClientM Populate
 updateProxy     :: Text -> Proxy -> ClientM Proxy
 deleteProxy     :: Text -> ClientM NoContent
 getToxics       :: Text -> ClientM [Toxic]
@@ -107,7 +127,7 @@ deleteToxic     :: Text -> Text -> ClientM NoContent
             :<|> getProxies
             :<|> createProxy
             :<|> getProxy
-            :<|> populateProxies
+            :<|> populate
             :<|> updateProxy
             :<|> deleteProxy
             :<|> getToxics
@@ -115,3 +135,6 @@ deleteToxic     :: Text -> Text -> ClientM NoContent
             :<|> getToxic
             :<|> updateToxic
             :<|> deleteToxic) = client toxiproxyAPI
+
+toxiproxyUrl :: BaseUrl
+toxiproxyUrl = BaseUrl Http "127.0.0.1" 8474 ""
