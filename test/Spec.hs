@@ -5,33 +5,22 @@ import Test.Hspec
 
 import Servant.Client
 import Servant.API
-import Network.HTTP.Client (newManager, defaultManagerSettings)
 import qualified Data.Map.Strict as Map
 import Control.Concurrent (threadDelay)
 import System.Process (withCreateProcess, proc, CreateProcess)
 import System.IO.Silently (silence)
+import Network.HTTP.Client (newManager, defaultManagerSettings)
+import Data.Either (isLeft)
+import Data.Time.Clock.POSIX (getPOSIXTime)
 
 import Toxiproxy
 
-withToxiproxyServer :: IO a -> IO a
-withToxiproxyServer f =
-  silence $
-    withCreateProcess server $ \_ _ _ _ -> threadDelay 100000 >> f
-  where
-    server :: CreateProcess
-    server = proc "toxiproxy-server" []
-
-run :: ClientM a -> IO (Either ServantError a)
-run f = do
-  manager <- newManager defaultManagerSettings
-  runClientM f (ClientEnv manager toxiproxyUrl)
-
 main :: IO ()
-main = hspec $
-  describe "Toxiproxy" $ do
+main = hspec $ do
+  describe "Toxiproxy API" $ do
     it "get version" $
       withToxiproxyServer $
-        run getVersion `shouldReturn` Right "git-fe6bf4f"
+        run getVersion `shouldReturn` Right version
     it "post reset" $
       withToxiproxyServer $
         run postReset `shouldReturn` Right NoContent
@@ -68,7 +57,7 @@ main = hspec $
               , proxyEnabled  = False
               , proxyToxics   = []
               }
-        run (populate [proxy1, proxy2]) `shouldReturn` Right (Populate [proxy1, proxy2])
+        run (postPopulate [proxy1, proxy2]) `shouldReturn` Right (Populate [proxy1, proxy2])
     it "create get, update and delete toxic" $
       withToxiproxyServer $ do
         let name = "myProxy"
@@ -97,3 +86,62 @@ main = hspec $
         run (updateToxic name toxicName updatedToxic) `shouldReturn` Right updatedToxic
         run (deleteToxic name toxicName) `shouldReturn` Right NoContent
         run (getToxics name) `shouldReturn` Right []
+  describe "Toxiproxy Helpers" $ do
+    it "disabled temporarily using withDisabled" $
+      withToxiproxyServer $ do
+        let proxy = Proxy
+              { proxyName     = "myProxy"
+              , proxyListen   = "127.0.0.1:4444"
+              , proxyUpstream = "127.0.0.1:8474"
+              , proxyEnabled  = True
+              , proxyToxics   = []
+              }
+        withProxy proxy $ \proxy -> do
+          runThroughProxy getVersion `shouldReturn` Right version
+          withDisabled proxy $ do
+            resp <- runThroughProxy getVersion
+            isLeft resp `shouldBe` True
+          runThroughProxy getVersion `shouldReturn` Right version
+    it "has temporary toxic using withToxic" $
+      withToxiproxyServer $ do
+        let proxy = Proxy
+              { proxyName     = "myProxy"
+              , proxyListen   = "127.0.0.1:4444"
+              , proxyUpstream = "127.0.0.1:8474"
+              , proxyEnabled  = True
+              , proxyToxics   = []
+              }
+        let toxic = Toxic
+              { toxicName       = "latency"
+              , toxicType       = "latency"
+              , toxicStream     = "upstream"
+              , toxicToxicity   = 1
+              , toxicAttributes = Map.fromList [("latency", 1000), ("jitter", 0)]
+              }
+        withProxy proxy $ \proxy -> do
+          runThroughProxy getVersion `shouldReturn` Right version
+          withToxic proxy toxic $ do
+            before <- getPOSIXTime
+            runThroughProxy getVersion `shouldReturn` Right version
+            after <- getPOSIXTime
+            after - before > 1 `shouldBe` True
+          runThroughProxy getVersion `shouldReturn` Right version
+
+withToxiproxyServer :: IO a -> IO a
+withToxiproxyServer f =
+  silence $
+    withCreateProcess server $ \_ _ _ _ -> threadDelay 100000 >> f
+  where
+    server :: CreateProcess
+    server = proc "toxiproxy-server" []
+
+version :: Version
+version = "git-fe6bf4f"
+
+proxyUrl :: BaseUrl
+proxyUrl = BaseUrl Http "127.0.0.1" 4444 ""
+
+runThroughProxy :: ClientM a -> IO (Either ServantError a)
+runThroughProxy f = do
+  manager <- newManager defaultManagerSettings
+  runClientM f (ClientEnv manager proxyUrl)

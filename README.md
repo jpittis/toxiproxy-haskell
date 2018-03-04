@@ -1,15 +1,15 @@
 # toxiproxy-haskell
 
-A working (and work in progress) client for [Toxiproxy](https://github.com/Shopify/toxiproxy).
+A Haskell client for [Toxiproxy](https://github.com/Shopify/toxiproxy).
 
-## Done
+## Features
 
 - The entire Toxiproxy API is implemented and tested.
+- A simple high level Haskell API.
 
 ## Todo Before V1
 
 - Submit server modification upstream. (See below.)
-- Write a higher level client using the `with` pattern.
 
 ## Server Modifications
 

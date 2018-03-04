@@ -7,7 +7,7 @@ module Toxiproxy
     , getProxies
     , createProxy
     , getProxy
-    , populate
+    , postPopulate
     , updateProxy
     , deleteProxy
     , getToxics
@@ -19,12 +19,16 @@ module Toxiproxy
     , Toxic(..)
     , Populate(..)
     , toxiproxyUrl
+    , withDisabled
+    , withToxic
+    , withProxy
+    , run
+    , Version
     ) where
 
 import Servant.API
 import Servant.Client
 import qualified Data.Proxy as Proxy
-
 import Data.Text (Text)
 import Data.List (stripPrefix)
 import Data.Char (toLower)
@@ -32,6 +36,7 @@ import GHC.Generics
 import Data.Aeson (FromJSON, parseJSON, fieldLabelModifier, defaultOptions, genericParseJSON,
                    ToJSON, genericToJSON, toJSON)
 import Data.Map.Strict (Map)
+import Network.HTTP.Client (newManager, defaultManagerSettings)
 
 type ToxiproxyAPI =
        "version"  :> Get '[PlainText] Version
@@ -99,7 +104,6 @@ instance FromJSON Populate where
     defaultOptions
       { fieldLabelModifier = stripPrefixJSON "populate" }
 
-
 stripPrefixJSON :: String -> String -> String
 stripPrefixJSON prefix str =
   case stripPrefix prefix str of
@@ -109,32 +113,50 @@ stripPrefixJSON prefix str =
 toxiproxyAPI :: Proxy.Proxy ToxiproxyAPI
 toxiproxyAPI = Proxy.Proxy
 
-getVersion      :: ClientM Version
-postReset       :: ClientM NoContent
-getProxies      :: ClientM (Map Text Proxy)
-createProxy     :: Proxy -> ClientM Proxy
-getProxy        :: Text -> ClientM Proxy
-populate        :: [Proxy] -> ClientM Populate
-updateProxy     :: Text -> Proxy -> ClientM Proxy
-deleteProxy     :: Text -> ClientM NoContent
-getToxics       :: Text -> ClientM [Toxic]
-createToxic     :: Text -> Toxic -> ClientM Toxic
-getToxic        :: Text -> Text -> ClientM Toxic
-updateToxic     :: Text -> Text -> Toxic -> ClientM Toxic
-deleteToxic     :: Text -> Text -> ClientM NoContent
+getVersion   :: ClientM Version
+postReset    :: ClientM NoContent
+getProxies   :: ClientM (Map Text Proxy)
+createProxy  :: Proxy -> ClientM Proxy
+getProxy     :: Text -> ClientM Proxy
+postPopulate :: [Proxy] -> ClientM Populate
+updateProxy  :: Text -> Proxy -> ClientM Proxy
+deleteProxy  :: Text -> ClientM NoContent
+getToxics    :: Text -> ClientM [Toxic]
+createToxic  :: Text -> Toxic -> ClientM Toxic
+getToxic     :: Text -> Text -> ClientM Toxic
+updateToxic  :: Text -> Text -> Toxic -> ClientM Toxic
+deleteToxic  :: Text -> Text -> ClientM NoContent
 
-(getVersion :<|> postReset
-            :<|> getProxies
-            :<|> createProxy
-            :<|> getProxy
-            :<|> populate
-            :<|> updateProxy
-            :<|> deleteProxy
-            :<|> getToxics
-            :<|> createToxic
-            :<|> getToxic
-            :<|> updateToxic
-            :<|> deleteToxic) = client toxiproxyAPI
+(getVersion :<|> postReset :<|> getProxies :<|> createProxy :<|> getProxy :<|> postPopulate
+            :<|> updateProxy :<|> deleteProxy :<|> getToxics :<|> createToxic :<|> getToxic
+            :<|> updateToxic :<|> deleteToxic) = client toxiproxyAPI
 
 toxiproxyUrl :: BaseUrl
 toxiproxyUrl = BaseUrl Http "127.0.0.1" 8474 ""
+
+run :: ClientM a -> IO (Either ServantError a)
+run f = do
+  manager <- newManager defaultManagerSettings
+  runClientM f (ClientEnv manager toxiproxyUrl)
+
+withDisabled :: Proxy -> IO a -> IO a
+withDisabled proxy f = do
+  let disabledProxy = proxy { proxyEnabled = False }
+  run $ updateProxy (proxyName proxy) disabledProxy
+  result <- f
+  run $ updateProxy (proxyName proxy) proxy
+  return result
+
+withToxic :: Proxy -> Toxic -> IO a -> IO a
+withToxic proxy toxic f = do
+  run $ createToxic (proxyName proxy) toxic
+  result <- f
+  run $ deleteToxic (proxyName proxy) (toxicName toxic)
+  return result
+
+withProxy :: Proxy -> (Proxy -> IO a) -> IO a
+withProxy proxy f = do
+  run $ createProxy proxy
+  result <- f proxy
+  run $ deleteProxy (proxyName proxy)
+  return result
