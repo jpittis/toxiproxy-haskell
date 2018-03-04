@@ -38,3 +38,4 @@ tests:
     - servant
     - http-client
     - containers
+    - process
