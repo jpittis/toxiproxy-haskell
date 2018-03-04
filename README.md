@@ -1,17 +1,34 @@
 # toxiproxy-haskell
 
-A Haskell client for [Toxiproxy](https://github.com/Shopify/toxiproxy).
+A complete Haskell client for [Toxiproxy](https://github.com/Shopify/toxiproxy).
 
-## Features
+## Example
 
-- The entire Toxiproxy API is implemented and tested.
-- A simple high level Haskell API.
+````haskell
+import Toxiproxy
 
-## Todo Before V1
+main :: IO ()
+main = do
+  let proxy = Proxy
+        { proxyName     = "myProxy"
+        , proxyListen   = myProxyHost
+        , proxyUpstream = myUpstreamHost
+        , proxyEnabled  = True
+        , proxyToxics   = []
+        }
+  let latency = Toxic
+        { toxicName       = "latency"
+        , toxicType       = "latency"
+        , toxicStream     = "upstream"
+        , toxicToxicity   = 1
+        , toxicAttributes = Map.fromList [("latency", 1000), ("jitter", 0)]
+        }
+  withProxy proxy $ \proxy -> do
+    withToxic proxy latency $ do
+      getRequestToMyProxyHost -- This will take > 1 second
+````
 
-- Submit server modification upstream. (See below.)
-
-## Server Modifications
+## Todo
 
 Before this client can be used with the official Toxiproxy build, the following patch has
 to be accepted upstream.
@@ -30,6 +47,4 @@ to be accepted upstream.
                 logrus.Warn("Version: Failed to write response to client", err)
 ````
 
-## Stack
-
-Currently using stack nigtly to have access to servant 12.0.
+Currently using stack nigtly to have access to servant 12.0. Switch to stable.
