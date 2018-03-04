@@ -30,21 +30,9 @@ main = do
 
 ## Todo
 
-Before this client can be used with the official Toxiproxy build, the following patch has
-to be accepted upstream.
+1. Before this client can be used with the official Toxiproxy build, the following patch has
+to be accepted upstream. ([Open upstream PR](https://github.com/Shopify/toxiproxy/pull/204))
 
-````diff
---- a/api.go
-+++ b/api.go
-@@ -382,7 +382,7 @@ func (server *ApiServer) ToxicDelete(response http.ResponseWriter, request *http
- }
+2. Ship a new version of Toxiproxy with the above patch.
 
- func (server *ApiServer) Version(response http.ResponseWriter, request *http.Request) {
--       response.Header().Set("Content-Type", "text/plain")
-+       response.Header().Set("Content-Type", "text/plain;charset=utf-8")
-        _, err := response.Write([]byte(Version))
-        if err != nil {
-                logrus.Warn("Version: Failed to write response to client", err)
-````
-
-Currently using stack nigtly to have access to servant 12.0. Switch to stable.
+3. Release to hackage and stackage.
