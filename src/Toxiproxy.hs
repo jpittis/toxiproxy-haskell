@@ -37,6 +37,8 @@ import Data.Aeson (FromJSON, parseJSON, fieldLabelModifier, defaultOptions, gene
                    ToJSON, genericToJSON, toJSON)
 import Data.Map.Strict (Map)
 import Network.HTTP.Client (newManager, defaultManagerSettings)
+import Control.Exception (bracket)
+import Control.Monad (void)
 
 type ToxiproxyAPI =
        "version"  :> Get '[PlainText] Version
@@ -140,23 +142,23 @@ run f = do
   runClientM f (ClientEnv manager toxiproxyUrl)
 
 withDisabled :: Proxy -> IO a -> IO a
-withDisabled proxy f = do
-  let disabledProxy = proxy { proxyEnabled = False }
-  run $ updateProxy (proxyName proxy) disabledProxy
-  result <- f
-  run $ updateProxy (proxyName proxy) proxy
-  return result
+withDisabled proxy f =
+  bracket disable enable $ const f
+  where
+    enable        = const . run $ updateProxy (proxyName proxy) proxy
+    disable       = void . run $ updateProxy (proxyName proxy) disabledProxy
+    disabledProxy = proxy { proxyEnabled = False }
 
 withToxic :: Proxy -> Toxic -> IO a -> IO a
-withToxic proxy toxic f = do
-  run $ createToxic (proxyName proxy) toxic
-  result <- f
-  run $ deleteToxic (proxyName proxy) (toxicName toxic)
-  return result
+withToxic proxy toxic f =
+  bracket enable disable $ const f
+  where
+    enable = void . run $ createToxic (proxyName proxy) toxic
+    disable = const . run $ deleteToxic (proxyName proxy) (toxicName toxic)
 
 withProxy :: Proxy -> (Proxy -> IO a) -> IO a
-withProxy proxy f = do
-  run $ createProxy proxy
-  result <- f proxy
-  run $ deleteProxy (proxyName proxy)
-  return result
+withProxy proxy =
+  bracket create delete
+  where
+    create = run (createProxy proxy) >> return proxy
+    delete = const . run $ deleteProxy (proxyName proxy)
