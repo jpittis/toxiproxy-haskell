@@ -5,6 +5,8 @@ license: BSD3
 author: "Jake Pittis"
 maintainer: "jakepittis@gmail.com"
 copyright: "2018 Jake Pittis"
+category: web
+synopsis: "Client library for Toxiproxy: a TCP failure testing proxy."
 
 extra-source-files:
 - README.md
