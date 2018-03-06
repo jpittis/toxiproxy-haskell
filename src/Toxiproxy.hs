@@ -1,6 +1,8 @@
-{-# LANGUAGE DataKinds     #-}
-{-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DataKinds                  #-}
+{-# LANGUAGE TypeOperators              #-}
+{-# LANGUAGE DeriveGeneric              #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE OverloadedStrings          #-}
 module Toxiproxy
     ( getVersion
     , postReset
@@ -23,49 +25,65 @@ module Toxiproxy
     , withToxic
     , withProxy
     , run
-    , Version
+    , Version(..)
+    , Stream(..)
+    , ToxicType(..)
     ) where
 
 import Servant.API
 import Servant.Client
 import qualified Data.Proxy as Proxy
-import Data.Text (Text)
+import Data.Text (Text, pack, toLower, unpack)
 import Data.List (stripPrefix)
-import Data.Char (toLower)
+import qualified Data.Char as Char (toLower)
 import GHC.Generics
 import Data.Aeson (FromJSON, parseJSON, fieldLabelModifier, defaultOptions, genericParseJSON,
-                   ToJSON, genericToJSON, toJSON)
+                   ToJSON, genericToJSON, toJSON, FromJSONKey, Value( String ))
 import Data.Map.Strict (Map)
 import Network.HTTP.Client (newManager, defaultManagerSettings)
 import Control.Exception (bracket)
 import Control.Monad (void)
+import Data.String (IsString)
 
 type ToxiproxyAPI =
        "version"  :> Get '[PlainText] Version
   :<|> "reset"    :> Post '[] NoContent
-  :<|> "proxies"  :> Get '[JSON] (Map Text Proxy)
-  :<|> "proxies"  :> ReqBody '[JSON] Proxy :> Post '[JSON] Proxy
-  :<|> "proxies"  :> Capture "name" Text :> Get '[JSON] Proxy
-  :<|> "populate" :> ReqBody '[JSON] [Proxy] :> Post '[JSON] Populate
-  :<|> "proxies"  :> Capture "name" Text :> ReqBody '[JSON] Proxy :> Post '[JSON] Proxy
-  :<|> "proxies"  :> Capture "name" Text :> Delete '[] NoContent
-  :<|> "proxies"  :> Capture "name" Text :>
+  :<|> "proxies"  :> Get '[JSON] (Map ProxyName Proxy)
+  :<|> "proxies"  :> ReqBody '[JSON] Proxy    :> Post '[JSON] Proxy
+  :<|> "proxies"  :> Capture "name" ProxyName :> Get '[JSON] Proxy
+  :<|> "populate" :> ReqBody '[JSON] [Proxy]  :> Post '[JSON] Populate
+  :<|> "proxies"  :> Capture "name" ProxyName :> ReqBody '[JSON] Proxy :> Post '[JSON] Proxy
+  :<|> "proxies"  :> Capture "name" ProxyName :> Delete '[] NoContent
+  :<|> "proxies"  :> Capture "name" ProxyName :>
        "toxics"   :> Get '[JSON] [Toxic]
-  :<|> "proxies"  :> Capture "name" Text :>
-       "toxics"   :> ReqBody '[JSON] Toxic :> Post '[JSON] Toxic
-  :<|> "proxies"  :> Capture "name" Text :>
-       "toxics"   :> Capture "name" Text :> Get '[JSON] Toxic
-  :<|> "proxies"  :> Capture "name" Text :>
-       "toxics"   :> Capture "name" Text :> ReqBody '[JSON] Toxic :> Get '[JSON] Toxic
-  :<|> "proxies"  :> Capture "name" Text :>
-       "toxics"   :> Capture "name" Text :> Delete '[JSON] NoContent
+  :<|> "proxies"  :> Capture "name" ProxyName :>
+       "toxics"   :> ReqBody '[JSON] Toxic    :> Post '[JSON] Toxic
+  :<|> "proxies"  :> Capture "name" ProxyName :>
+       "toxics"   :> Capture "name" ToxicName :> Get '[JSON] Toxic
+  :<|> "proxies"  :> Capture "name" ProxyName :>
+       "toxics"   :> Capture "name" ToxicName :> ReqBody '[JSON] Toxic :> Get '[JSON] Toxic
+  :<|> "proxies"  :> Capture "name" ProxyName :>
+       "toxics"   :> Capture "name" ToxicName :> Delete '[JSON] NoContent
 
-type Version = Text
+newtype ProxyName = ProxyName Text
+  deriving (Show, Eq, IsString, Ord, Generic, ToHttpApiData, FromJSONKey)
+
+instance FromJSON ProxyName
+instance ToJSON   ProxyName
+
+newtype ToxicName = ToxicName Text
+  deriving (Show, Eq, IsString, Generic, ToHttpApiData)
+
+instance FromJSON ToxicName
+instance ToJSON   ToxicName
+
+newtype Version = Version Text
+  deriving (Show, Eq, MimeUnrender PlainText)
 
 data Proxy = Proxy
-  { proxyName     :: Text
-  , proxyListen   :: Text
-  , proxyUpstream :: Text
+  { proxyName     :: ProxyName
+  , proxyListen   :: Host
+  , proxyUpstream :: Host
   , proxyEnabled  :: Bool
   , proxyToxics   :: [Toxic]
   } deriving (Show, Eq, Generic)
@@ -80,10 +98,12 @@ instance ToJSON Proxy where
     defaultOptions
       { fieldLabelModifier = stripPrefixJSON "proxy" }
 
+type Host = Text
+
 data Toxic = Toxic
-  { toxicName       :: Text
-  , toxicType       :: Text
-  , toxicStream     :: Text
+  { toxicName       :: ToxicName
+  , toxicType       :: ToxicType
+  , toxicStream     :: Stream
   , toxicToxicity   :: Float
   , toxicAttributes :: Map Text Int
   } deriving (Show, Eq, Generic)
@@ -106,28 +126,54 @@ instance FromJSON Populate where
     defaultOptions
       { fieldLabelModifier = stripPrefixJSON "populate" }
 
+data Stream = Upstream | Downstream
+  deriving (Show, Eq)
+
+instance ToJSON Stream where
+  toJSON Upstream   = String "upstream"
+  toJSON Downstream = String "downstream"
+
+instance FromJSON Stream where
+  parseJSON (String stream) =
+    case stream of
+      "upstream"   -> return Upstream
+      "downstream" -> return Downstream
+
+data ToxicType = Latency | Other Text
+  deriving (Show, Eq)
+
+instance ToJSON ToxicType where
+  toJSON Latency       = String "latency"
+  toJSON (Other other) = String other
+
+instance FromJSON ToxicType where
+  parseJSON (String toxicType) =
+    case toxicType of
+      "latency" -> return Latency
+      other     -> return . Other $ other
+
 stripPrefixJSON :: String -> String -> String
 stripPrefixJSON prefix str =
   case stripPrefix prefix str of
     Nothing             -> str
-    Just (first : rest) -> toLower first : rest
+    Just (first : rest) -> Char.toLower first : rest
 
 toxiproxyAPI :: Proxy.Proxy ToxiproxyAPI
 toxiproxyAPI = Proxy.Proxy
 
 getVersion   :: ClientM Version
 postReset    :: ClientM NoContent
-getProxies   :: ClientM (Map Text Proxy)
+getProxies   :: ClientM (Map ProxyName Proxy)
 createProxy  :: Proxy -> ClientM Proxy
-getProxy     :: Text -> ClientM Proxy
+getProxy     :: ProxyName -> ClientM Proxy
 postPopulate :: [Proxy] -> ClientM Populate
-updateProxy  :: Text -> Proxy -> ClientM Proxy
-deleteProxy  :: Text -> ClientM NoContent
-getToxics    :: Text -> ClientM [Toxic]
-createToxic  :: Text -> Toxic -> ClientM Toxic
-getToxic     :: Text -> Text -> ClientM Toxic
-updateToxic  :: Text -> Text -> Toxic -> ClientM Toxic
-deleteToxic  :: Text -> Text -> ClientM NoContent
+updateProxy  :: ProxyName -> Proxy -> ClientM Proxy
+deleteProxy  :: ProxyName -> ClientM NoContent
+getToxics    :: ProxyName -> ClientM [Toxic]
+createToxic  :: ProxyName -> Toxic -> ClientM Toxic
+getToxic     :: ProxyName -> ToxicName -> ClientM Toxic
+updateToxic  :: ProxyName -> ToxicName -> Toxic -> ClientM Toxic
+deleteToxic  :: ProxyName -> ToxicName -> ClientM NoContent
 
 (getVersion :<|> postReset :<|> getProxies :<|> createProxy :<|> getProxy :<|> postPopulate
             :<|> updateProxy :<|> deleteProxy :<|> getToxics :<|> createToxic :<|> getToxic

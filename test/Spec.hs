@@ -64,8 +64,8 @@ main = hspec $ do
         let toxicName = "latency"
         let toxic = Toxic
               { toxicName       = toxicName
-              , toxicType       = toxicName
-              , toxicStream     = "upstream"
+              , toxicType       = Latency
+              , toxicStream     = Upstream
               , toxicToxicity   = 1
               , toxicAttributes = Map.fromList [("latency", 1000), ("jitter", 0)]
               }
@@ -113,8 +113,8 @@ main = hspec $ do
               }
         let toxic = Toxic
               { toxicName       = "latency"
-              , toxicType       = "latency"
-              , toxicStream     = "upstream"
+              , toxicType       = Latency
+              , toxicStream     = Upstream
               , toxicToxicity   = 1
               , toxicAttributes = Map.fromList [("latency", 1000), ("jitter", 0)]
               }
@@ -136,7 +136,7 @@ withToxiproxyServer f =
     server = proc "toxiproxy-server" []
 
 version :: Version
-version = "git-fe6bf4f"
+version = Version "git-fe6bf4f"
 
 proxyUrl :: BaseUrl
 proxyUrl = BaseUrl Http "127.0.0.1" 4444 ""
