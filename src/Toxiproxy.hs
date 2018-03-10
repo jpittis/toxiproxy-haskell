@@ -23,6 +23,9 @@ module Toxiproxy
     , Version(..)
     , Stream(..)
     , ToxicType(..)
+    , ProxyName(..)
+    , ToxicName(..)
+    , Host
     , toxiproxyUrl
     , withDisabled
     , withToxic
@@ -209,18 +212,31 @@ stripPrefixJSON prefix str =
 toxiproxyAPI :: Proxy.Proxy ToxiproxyAPI
 toxiproxyAPI = Proxy.Proxy
 
+-- | Returns the server version number.
 getVersion   :: ClientM Version
+-- | Enable all proxies and remove all active toxics.
 postReset    :: ClientM NoContent
+-- | List existing proxies and their toxics.
 getProxies   :: ClientM (Map ProxyName Proxy)
+-- | Create a new proxy.
 createProxy  :: Proxy -> ClientM Proxy
+-- | Get a proxy with all its active toxics.
 getProxy     :: ProxyName -> ClientM Proxy
+-- | Create or replace a list of proxies.
 postPopulate :: [Proxy] -> ClientM Populate
+-- | Update a proxy's fields.
 updateProxy  :: ProxyName -> Proxy -> ClientM Proxy
+-- | Delete an existing proxy.
 deleteProxy  :: ProxyName -> ClientM NoContent
+-- | List active toxics.
 getToxics    :: ProxyName -> ClientM [Toxic]
+-- | Create a new toxic.
 createToxic  :: ProxyName -> Toxic -> ClientM Toxic
+-- |  Get an active toxic's fields.
 getToxic     :: ProxyName -> ToxicName -> ClientM Toxic
+-- | Update an active toxic.
 updateToxic  :: ProxyName -> ToxicName -> Toxic -> ClientM Toxic
+-- | Remove an active toxic.
 deleteToxic  :: ProxyName -> ToxicName -> ClientM NoContent
 
 (getVersion :<|> postReset :<|> getProxies :<|> createProxy :<|> getProxy :<|> postPopulate
