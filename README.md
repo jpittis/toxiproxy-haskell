@@ -1,4 +1,4 @@
-A complete Haskell client for [Toxiproxy](https://github.com/Shopify/toxiproxy).
+A Haskell client for [Toxiproxy](https://github.com/Shopify/toxiproxy).
 
 (Requires Toxiproxy version 2.1.3 and above.)
 
@@ -18,12 +18,11 @@ main = do
         }
   let latency = Toxic
         { toxicName       = "latency"
-        , toxicType       = "latency"
-        , toxicStream     = "upstream"
+        , toxicType       = Latency
+        , toxicStream     = Upstream
         , toxicToxicity   = 1
         , toxicAttributes = Map.fromList [("latency", 1000), ("jitter", 0)]
         }
-  withProxy proxy $ \proxy -> do
-    withToxic proxy latency $ do
-      getRequestToMyProxyHost -- This will take > 1 second
+  withProxy proxy $ \proxy ->
+    withToxic proxy latency getRequestToMyProxyHost -- This will take > 1 second
 ````
