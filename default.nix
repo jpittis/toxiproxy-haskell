@@ -1,8 +1,6 @@
-{ compiler ? "default", doBenchmark ? false }:
+{ pkgs ? import <nixpkgs> {}, compiler ? "default", doBenchmark ? false }:
 
 let
-
-  pkgs = import ../kassir/nix/pkgs.nix;
 
   f = { mkDerivation, aeson, base, containers, hpack, hspec
       , http-client, process, servant, servant-client, silently, stdenv
