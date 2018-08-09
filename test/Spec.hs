@@ -133,10 +133,10 @@ withToxiproxyServer f =
     withCreateProcess server $ \_ _ _ _ -> threadDelay 100000 >> f
   where
     server :: CreateProcess
-    server = proc "toxiproxy-server" []
+    server = proc "toxiproxy-cmd" []
 
 version :: Version
-version = Version "git-fe6bf4f"
+version = Version "v2.1.3"
 
 proxyUrl :: BaseUrl
 proxyUrl = BaseUrl Http "127.0.0.1" 4444 ""
@@ -144,4 +144,4 @@ proxyUrl = BaseUrl Http "127.0.0.1" 4444 ""
 runThroughProxy :: ClientM a -> IO (Either ServantError a)
 runThroughProxy f = do
   manager <- newManager defaultManagerSettings
-  runClientM f (ClientEnv manager proxyUrl)
+  runClientM f (ClientEnv manager proxyUrl Nothing)
