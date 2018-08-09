@@ -33,7 +33,7 @@ module Toxiproxy
     , run
     ) where
 
-import Servant.API
+import Servant.API hiding (Stream)
 import Servant.Client
 import qualified Data.Proxy as Proxy
 import Data.Text (Text, pack, toLower, unpack)
@@ -257,7 +257,7 @@ toxiproxyUrl = BaseUrl Http "127.0.0.1" 8474 ""
 run :: ClientM a -> IO (Either ServantError a)
 run f = do
   manager <- newManager defaultManagerSettings
-  runClientM f (ClientEnv manager toxiproxyUrl)
+  runClientM f (ClientEnv manager toxiproxyUrl Nothing)
 
 -- | Given an enabled proxy, disable the proxy, run the given action and then re-enable
 --   the proxy.
