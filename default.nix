@@ -14,9 +14,10 @@ let
           aeson base containers http-client servant servant-client text
         ];
         libraryToolDepends = [ hpack ];
+        testDepends = [pkgs.toxiproxy];
         testHaskellDepends = [
           base containers hspec http-client process servant servant-client
-          silently time
+          silently time 
         ];
         preConfigure = "hpack";
         homepage = "https://github.com/jpittis/toxiproxy-haskell#readme";
@@ -31,10 +32,7 @@ let
   variant = if doBenchmark then pkgs.haskell.lib.doBenchmark else pkgs.lib.id;
 
   drv = variant (haskellPackages.callPackage f {});
-  withToxi = ride: ride.overrideAttrs (_: 
-   { buildInputs = with pkgs; ride.buildInputs ++ [ toxiproxy coreutils ];
-   });
 
 in
 
-  if pkgs.lib.inNixShell then withToxi drv.env else withToxi drv
+  if pkgs.lib.inNixShell then drv.env else drv
