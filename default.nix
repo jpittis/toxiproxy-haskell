@@ -1,6 +1,11 @@
-{ pkgs ? import <nixpkgs> {}, compiler ? "default", doBenchmark ? false }:
+{ compiler ? "default", doBenchmark ? false }:
 
 let
+
+  rev = "153d32cd9fac7e885979426b0e86b560a661a1ac";
+
+  pkgs = import  (builtins.fetchTarball { url = "https://github.com/NixOS/nixpkgs/archive/${rev}.tar.gz"; })
+    { overlays = [ ]; };
 
   f = { mkDerivation, aeson, base, containers, hpack, hspec
       , http-client, process, servant, servant-client, silently, stdenv
